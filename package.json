@@ -1,0 +1,84 @@
+{
+  "name": "stamprint-studio",
+  "private": true,
+  "version": "0.4.2",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "description": "Estudio de diseño y preparación de artes textiles",
+  "author": "Stamprint Studio",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:windows": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "build:mac": "node scripts/build-apple.cjs mac",
+    "package:web": "npm run build && node scripts/package-web.cjs",
+    "sync:ios": "npm run build && cap sync ios",
+    "open:ios": "npm run sync:ios && cap open ios",
+    "sync:android": "npm run build && cap sync android",
+    "build:android": "npm run sync:android && node scripts/build-android.cjs",
+    "check:windows": "node scripts/check-windows.cjs",
+    "prebuild": "node scripts/sync-version.cjs",
+    "build:ios": "node scripts/build-apple.cjs ios-simulator",
+    "build:ios:archive": "node scripts/build-apple.cjs ios-archive",
+    "package:apple": "npm run sync:ios && node scripts/package-apple.cjs"
+  },
+  "build": {
+    "appId": "com.stamprint.studio",
+    "productName": "Stamprint Studio",
+    "directories": {
+      "output": "installers/windows"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Stamprint-Studio-${version}-Windows.exe"
+    },
+    "mac": {
+      "category": "public.app-category.graphics-design",
+      "artifactName": "Stamprint-Studio-${version}-macOS-${arch}.${ext}"
+    }
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/share": "^8.0.3",
+    "@types/jszip": "^3.4.0",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "latest",
+    "jszip": "^3.10.2",
+    "react": "latest",
+    "react-dom": "latest",
+    "three": "^0.187.0",
+    "vite": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0",
+    "@napi-rs/canvas": "^1.1.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^26.6.6",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "electron": "^45.3.1",
+    "electron-builder": "^26.18.0",
+    "fake-indexeddb": "^6.2.7",
+    "jsdom": "^31.0.0",
+    "typescript": "latest",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "latest"
+  },
+  "nativeBuildNumber": 6
+}

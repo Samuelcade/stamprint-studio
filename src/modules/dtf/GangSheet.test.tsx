@@ -1,0 +1,54 @@
+// @vitest-environment jsdom
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { IDBFactory } from "fake-indexeddb";
+import { GangSheet } from "./GangSheet";
+import { installTestCanvas } from "../graphic-editor/testCanvas";
+
+beforeEach(() => { installTestCanvas(); vi.stubGlobal("indexedDB", new IDBFactory()); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+describe("controles de la mesa DTF", () => {
+  it("edita medidas, añade, duplica, gira, distribuye y elimina diseños", async () => {
+    const user = userEvent.setup(), open = vi.fn();
+    const editor = vi.fn().mockResolvedValue({ source: "data:image/png;base64,AA==", name: "Diseño", widthCm: 10, heightCm: 5 });
+    render(<GangSheet hasEditorDesign onUseEditor={editor} onOpenEditor={open} />);
+    const width = screen.getByLabelText("Ancho del rollo (cm)") as HTMLInputElement;
+    await user.selectOptions(screen.getByLabelText("Fondo de la hoja"), "white");
+    expect(document.querySelector(".gang-board-white")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Exportar PDF" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.clear(width); await user.type(width, "55.5"); await user.tab();
+    expect(width.value).toBe("55.5");
+    await user.click(screen.getByRole("button", { name: "Usar diseño del editor" }));
+    await waitFor(() => expect(screen.getByLabelText("Ancho (cm)")).toBeTruthy());
+    const designWidth = screen.getByLabelText("Ancho (cm)") as HTMLInputElement;
+    await user.clear(designWidth); await user.type(designWidth, "12.5"); await user.tab();
+    expect(designWidth.value).toBe("12.5");
+    expect((screen.getByLabelText("Alto (cm)") as HTMLInputElement).value).toBe("6.25");
+    await user.click(screen.getByRole("button", { name: "Duplicar" }));
+    expect(screen.getByRole("status").textContent).toContain("espacio disponible");
+    expect(screen.getAllByRole("button", { name: /Diseño\s*#/ })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: /Girar 90/ }));
+    expect(screen.getByRole("button", { name: /#2/ }).textContent).toContain("6.3 × 12.5");
+    const resize = screen.getByRole("button", { name: "Cambiar tamaño arrastrando" });
+    fireEvent.pointerDown(resize, { clientX: 300, clientY: 300, button: 0 });
+    fireEvent.pointerMove(resize, { clientX: 350, clientY: 350 }); fireEvent.pointerUp(resize, { clientX: 350, clientY: 350 });
+    expect(Number((screen.getByLabelText("Ancho (cm)") as HTMLInputElement).value)).toBeGreaterThan(12.5);
+    const angle = screen.getByLabelText("Giro (°)") as HTMLInputElement;
+    await user.clear(angle); await user.type(angle, "45"); await user.tab(); expect(angle.value).toBe("45");
+    const rotate = screen.getByRole("button", { name: "Girar diseño arrastrando" });
+    fireEvent.pointerDown(rotate, { clientX: 300, clientY: 200, button: 0 }); fireEvent.pointerMove(rotate, { clientX: 420, clientY: 300 }); fireEvent.pointerUp(rotate, { clientX: 420, clientY: 300 });
+    expect(Number(angle.value)).not.toBe(45);
+    await user.click(screen.getByRole("button", { name: /Distribuir automáticamente/ }));
+    expect(screen.getByRole("status").textContent).toContain("distribuidos");
+    await user.click(screen.getByRole("button", { name: "Guardar mesa" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("Mesa guardada"));
+    await user.click(screen.getByRole("button", { name: "Eliminar" }));
+    expect(screen.getAllByRole("button", { name: /Diseño\s*#/ })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Abrir mesa guardada" }));
+    await waitFor(() => expect(screen.getAllByRole("button", { name: /Diseño\s*#/ })).toHaveLength(2));
+    expect(screen.getByRole("status").textContent).toContain("recuperada");
+    await user.click(screen.getByRole("button", { name: "Abrir editor" }));
+    expect(open).toHaveBeenCalledOnce();
+  });
+});

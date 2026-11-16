@@ -1,0 +1,83 @@
+name: Generar instaladores
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Plataforma a compilar (iOS es solo para simulador)
+        required: true
+        default: macos
+        type: choice
+        options:
+          - macos
+          - windows
+          - ios-simulator
+          - all
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    if: inputs.platform == 'macos' || inputs.platform == 'all'
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compilar Intel y Apple Silicon sin certificado de distribución
+        run: npm run build:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stamprint-macOS-sin-notarizar
+          path: |
+            installers/mac/*.dmg
+            installers/mac/*.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    if: inputs.platform == 'windows' || inputs.platform == 'all'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build:windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stamprint-Windows-sin-firma
+          path: installers/windows/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  ios-simulator:
+    if: inputs.platform == 'ios-simulator' || inputs.platform == 'all'
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Seleccionar Xcode compatible con Capacitor 8
+        run: sudo xcode-select --switch /Applications/Xcode_26.3.app/Contents/Developer
+      - run: npm ci
+      - run: npm run build:ios
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stamprint-iOS-SOLO-SIMULADOR
+          path: installers/ios/*-iOS-Simulator.zip
+          if-no-files-found: error
+          retention-days: 14

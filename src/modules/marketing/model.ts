@@ -1,0 +1,11 @@
+export type PosterFormat = "square" | "portrait" | "story";
+export type Template = "shirt-front" | "shirt-back" | "hoodie" | "photo" | "photo-hanger" | "photo-woman-casual" | "photo-woman-studio" | "photo-man" | "photo-shirt-front" | "photo-shirt-back";
+export const TECHNIQUES = { dtf: "DTF", screen: "Serigrafía", sublimation: "Sublimación", vinyl: "Vinilo", embroidery: "Bordado", rhinestones: "Piedrería" } as const;
+export type Technique = keyof typeof TECHNIQUES;
+export type ImageLayer = { id: string; kind: "image"; source: string; name: string; x: number; y: number; width: number; aspect: number; rotation: number; technique?: Technique; opacity?: number };
+export type TextLayer = { id: string; kind: "text"; text: string; color: string; x: number; y: number; size: number; rotation: number; font?: "Arial" | "Georgia" | "Impact"; bold?: boolean };
+export type PosterLayer = ImageLayer | TextLayer;
+export type Poster = { format: PosterFormat; template: Template; garmentColor: string; background: string; photo: string; mask: string; layers: PosterLayer[]; photoFit?: "contain" | "cover"; recolor?: boolean; backgroundImage?: string; backgroundMask?: string; cutout?: boolean };
+export const FORMAT_HEIGHT: Record<PosterFormat, number> = { square: 1080, portrait: 1350, story: 1920 };
+export const blankPoster = (): Poster => ({ format: "portrait", template: "photo-hanger", garmentColor: "#ffffff", background: "#ded8d1", photo: "", mask: "", layers: [], photoFit: "contain", recolor: false });
+export const colorHex = (color: string) => /^#[0-9a-f]{6}$/i.test(color);

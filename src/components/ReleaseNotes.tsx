@@ -1,0 +1,5 @@
+import { version } from "../../package.json";
+export const APP_VERSION = version;
+export function ReleaseNotes() {
+  return <details className="release-notes"><summary><span className="release-badge">v{APP_VERSION}</span> Novedades de esta actualización</summary><div><strong>Actualización de la aplicación y proyectos multiplataforma.</strong><ul><li>Versión 0.4.2: reúne los cambios actuales del editor, técnicas, plantillas y controles táctiles.</li><li>Proyectos Android, Windows, macOS e iOS con la misma versión.</li><li>El color de piedra se aplica al instante a la selección; también puedes aplicarlo a todas las piedras.</li><li>El PNG de piedrería conserva los colores y la transparencia.</li><li>Eliminar color vuelve a usar Zona conectada por defecto.</li><li>Navegación con iconos, paneles del editor separados, zoom con dos dedos y vista amplia.</li><li>Plantillas con controles organizados por prenda y elementos.</li></ul><p>El zoom cambia la vista. Las medidas y la resolución de exportación se mantienen.</p></div></details>;
+}
