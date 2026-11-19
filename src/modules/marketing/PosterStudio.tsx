@@ -5,6 +5,7 @@ import { createId } from "../../core/id";
 import type { ChangeEvent, PointerEvent } from "react";
 import { importImageFile, loadImage } from "../graphic-editor/render";
 import { removeColor } from "../background-removal/colorRemoval";
+import { alphaBounds } from "../dtf/crop";
 import { blankPoster, FORMAT_HEIGHT, TECHNIQUES } from "./model";
 import type { Poster, PosterLayer, PosterFormat, Template, Technique } from "./model";
 import { drawPhoto, drawPosterBackground, drawPosterLayer, photoPlacement, preparePosterPrint } from "./render";
@@ -39,6 +40,7 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
     current.current = updated; setHistory(updated); setSelectedId(undefined);
   }
   const [mobilePanel, setMobilePanel] = useState("canvas");
+  const [measureMode, setMeasureMode] = useState(false), [measurePoints, setMeasurePoints] = useState<{ x: number; y: number }[]>([]), [referenceCm, setReferenceCm] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const view = useCanvasView(1080, FORMAT_HEIGHT[poster.format], cancelGesture);
   const [selectedId, setSelectedId] = useState<string>(), [draft, setDraft] = useState<PosterLayer>(), [clean, setClean] = useState(false);
@@ -61,6 +63,9 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
   const base = useRef<HTMLCanvasElement>(null), stage = useRef<HTMLDivElement>(null), mask = useRef<HTMLCanvasElement | null>(null), alive = useRef(true);
   const drag = useRef<{ layer: PosterLayer; dx: number; dy: number; pointerId: number } | null>(null), painting = useRef(false), last = useRef<{ x: number; y: number } | null>(null);
   const selected = poster.layers.find(item => item.id === selectedId), previewHeight = Math.round(previewWidth * FORMAT_HEIGHT[poster.format] / 1080);
+  const referencePixels = measurePoints.length === 2 ? Math.hypot((measurePoints[1].x - measurePoints[0].x) * 1080, (measurePoints[1].y - measurePoints[0].y) * FORMAT_HEIGHT[poster.format]) : 0;
+  const scaleCm = referencePixels > 0 && Number(referenceCm) > 0 ? Number(referenceCm) / referencePixels : 0;
+  useEffect(() => { setMeasurePoints([]); setMeasureMode(false); }, [poster.template, poster.photo, poster.format, poster.photoFit]);
   useEffect(() => { memory = poster; }, [poster]);
   useEffect(() => { if (mode !== "off") setMobilePanel("canvas"); }, [mode]);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
@@ -111,6 +116,12 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
     canvas.width = previewWidth; canvas.height = previewHeight; const ctx = canvas.getContext("2d")!;
     ctx.drawImage(backgroundCanvas.current, 0, 0);
     for (const layer of layers) drawPosterLayer(ctx, previewWidth, previewHeight, layer, layer.kind === "image" ? assets.get(assetKey(layer)) : undefined);
+    if (measureMode && measurePoints.length) {
+      ctx.save(); ctx.strokeStyle = "#b7ec55"; ctx.fillStyle = "#b7ec55"; ctx.lineWidth = 2;
+      if (measurePoints.length === 2) { ctx.beginPath(); ctx.moveTo(measurePoints[0].x * previewWidth, measurePoints[0].y * previewHeight); ctx.lineTo(measurePoints[1].x * previewWidth, measurePoints[1].y * previewHeight); ctx.stroke(); }
+      for (const point of measurePoints) { ctx.beginPath(); ctx.arc(point.x * previewWidth, point.y * previewHeight, 5, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
     if (mode === "contour" && photo && contour.length) {
       const p = photoPlacement(photo.naturalWidth, photo.naturalHeight, previewWidth, previewHeight, poster.photoFit ?? "contain");
       const points = contour.map(point => ({ x: p.x + point.x * p.width, y: p.y + point.y * p.height }));
@@ -118,8 +129,30 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
       ctx.closePath(); ctx.fillStyle = "#b7ec5522"; ctx.fill(); ctx.strokeStyle = "#b7ec55"; ctx.lineWidth = 2; ctx.stroke();
       for (const point of points) { ctx.beginPath(); ctx.arc(point.x, point.y, 3, 0, Math.PI * 2); ctx.fillStyle = "#b7ec55"; ctx.fill(); }
     }
-  }, [backgroundVersion, poster.layers, draft, assets, previewHeight, contour, mode, photo, poster.photoFit]);
+  }, [backgroundVersion, poster.layers, draft, assets, previewHeight, contour, mode, photo, poster.photoFit, measureMode, measurePoints]);
   function updateLayer(id: string, update: Partial<PosterLayer>) { setPoster(current => ({ ...current, layers: current.layers.map(layer => layer.id === id ? { ...layer, ...update } as PosterLayer : layer) }), "element:" + id); }
+  async function cropSelected() {
+    if (selected?.kind !== "image" || busy) return;
+    const original = selected; setBusy(true); setError("");
+    try {
+      const image = await loadImage(original.source), w = image.naturalWidth, h = image.naturalHeight;
+      const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true }); if (!ctx) throw new Error("No se pudo recortar el estampado.");
+      ctx.drawImage(image, 0, 0); const bounds = alphaBounds(ctx.getImageData(0, 0, w, h).data, w, h);
+      if (!bounds) throw new Error("La imagen es totalmente transparente.");
+      if (bounds.width === w && bounds.height === h) { setStatus("No hay márgenes transparentes que recortar. Un fondo opaco no se elimina con este recorte."); return; }
+      const cropped = document.createElement("canvas"); cropped.width = bounds.width; cropped.height = bounds.height;
+      cropped.getContext("2d")!.drawImage(image, bounds.x, bounds.y, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
+      const dx = (bounds.x + bounds.width / 2 - w / 2) / w * original.width * 1080;
+      const dy = (bounds.y + bounds.height / 2 - h / 2) / h * original.width * 1080 / original.aspect;
+      const angle = original.rotation * Math.PI / 180;
+      const x = original.x + (dx * Math.cos(angle) - dy * Math.sin(angle)) / 1080;
+      const y = original.y + (dx * Math.sin(angle) + dy * Math.cos(angle)) / FORMAT_HEIGHT[poster.format];
+      const source = cropped.toDataURL("image/png");
+      setPoster(current => current.layers.some(layer => layer.id === original.id && layer.kind === "image" && layer.source === original.source) ? { ...current, layers: current.layers.map(layer => layer.id === original.id ? { ...original, source, x, y, width: original.width * bounds.width / w, aspect: bounds.width / bounds.height } : layer) } : current);
+      endGroup(); setStatus("Márgenes transparentes recortados sin cambiar la posición ni el tamaño visible. Puedes deshacer.");
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "No se pudo recortar el estampado."); } finally { if (alive.current) setBusy(false); }
+  }
   async function importDesign(get: () => Promise<ImageInput>) {
     if (poster.layers.length >= 100) { setError("La plantilla admite hasta 100 elementos."); return; }
     setBusy(true); setError("");
@@ -219,6 +252,7 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
     const rect = stage.current!.getBoundingClientRect(); return { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
   }
   function startLayer(event: PointerEvent<HTMLDivElement>, layer: PosterLayer) {
+    if (measureMode) return;
     if (mode !== "off" || busy || (event.pointerType === "mouse" && event.button !== 0)) return;
     if (clean) return; endGroup(); event.preventDefault(); event.stopPropagation(); event.currentTarget.setPointerCapture(event.pointerId); setSelectedId(layer.id);
     const p = position(event); drag.current = { layer, dx: p.x - layer.x, dy: p.y - layer.y, pointerId: event.pointerId };
@@ -248,6 +282,7 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
     } catch (failure) { setError(failure instanceof Error ? failure.message : "No se pudo seleccionar la prenda."); }
   }
   function stageDown(event: PointerEvent<HTMLDivElement>) {
+    if (measureMode && !busy) { event.preventDefault(); const p = position(event); setMeasurePoints(points => points.length >= 2 ? [p] : [...points, p]); return; }
     if (mode === "off" || !photo || !maskReady || busy) return; event.preventDefault(); const point = position(event);
     if (mode === "contour") {
       const p = photoPlacement(photo.naturalWidth, photo.naturalHeight, previewWidth, previewHeight, poster.photoFit ?? "contain");
@@ -309,6 +344,7 @@ export function PosterStudio({ hasEditorDesign, onUseEditor }: { hasEditorDesign
     <p className="poster-help">Las fotos de la galería tienen el área de la camiseta preparada. Para un buzo u otra prenda, carga tu fotografía y selecciona el área que quieras colorear.</p><hr /><h2>Añadir contenido</h2><label className="poster-file">Cargar estampado<input type="file" accept="image/png,image/jpeg,image/webp" multiple={false} disabled={busy} onChange={fileDesign} /></label><button disabled={!hasEditorDesign || busy} onClick={() => void importDesign(onUseEditor)}>Usar diseño del editor</button><button onClick={addText}>+ Añadir texto</button><p className="poster-help">Puedes usar PNG de DTF, serigrafía u otra técnica. Los archivos transparentes se integran mejor.</p></fieldset>
     <div className="poster-center"><div className="poster-canvas-heading"><span>VISTA DE LA PUBLICACIÓN</span><button aria-pressed={clean} onClick={() => { setClean(!clean); setMode("off"); }}>Vista limpia</button><span>{poster.format === "story" ? "HISTORIA" : poster.format === "square" ? "CUADRADA" : "VERTICAL"}</span></div><ViewControls {...view} /><div className={`poster-scroll ${view.pan ? "is-panning" : ""}`} ref={view.viewportRef} {...view.events}><div className="poster-sheet-space" style={view.space}><div className={`poster-stage ${mode !== "off" ? "is-masking" : ""} ${clean ? "is-clean" : ""}`} ref={stage} style={{ width: 1080 * view.scale, height: FORMAT_HEIGHT[poster.format] * view.scale }} onPointerDown={stageDown} onPointerMove={stageMove} onPointerUp={stageFinish} onPointerCancel={cancelGesture} onClick={event => { if (mode === "off" && event.target === event.currentTarget) setSelectedId(undefined); }}><canvas ref={base} aria-label="Fondo de la plantilla" />{layers.map(layer => <div key={layer.id} className={`poster-layer ${layer.id === selectedId && !clean ? "is-selected" : ""}`} style={{ left: `${layer.x * 100}%`, top: `${layer.y * 100}%`, transform: `translate(-50%, -50%) rotate(${layer.rotation}deg)`, ...(layer.kind === "image" ? { width: `${layer.width * 100}%` } : { fontSize: `${layer.size * 100}cqw`, color: layer.color, fontFamily: layer.font ?? "Arial", fontWeight: layer.bold === false ? 400 : 700 }) }} onPointerDown={event => startLayer(event, layer)}>{layer.kind === "image" ? <img src={layer.source} alt={layer.name} draggable={false} style={{ opacity: 0 }} /> : <span style={{ opacity: 0 }}>{layer.text}</span>}</div>)}</div></div></div><p className="poster-status" role="status">{status}</p>{error && <p className="poster-error" role="alert">{error}</p>}</div>
     <fieldset className="poster-panel" disabled={busy}><h2>Elementos</h2>{poster.layers.length === 0 ? <p className="poster-help">Añade un estampado o un texto.</p> : <div className="poster-list">{poster.layers.map((layer, index) => <button key={layer.id} aria-pressed={layer.id === selectedId} onClick={() => { setSelectedId(layer.id); setMode("off"); setClean(false); }}>{layer.kind === "image" ? `▧ ${layer.name}` : `T ${layer.text || "Texto"}`} <small>#{index + 1}</small></button>)}</div>}
+    {selected?.kind === "image" && <><hr /><h2>Medida del estampado</h2><button type="button" onClick={() => void cropSelected()}>Recortar márgenes transparentes</button><p className="poster-help">El recorte elimina solo los márgenes transparentes; no elimina fondos blancos ni otros fondos opacos.</p><label>Longitud real de referencia (cm)<input type="number" min="0.1" max="1000" step="0.1" value={referenceCm} onChange={event => setReferenceCm(event.target.value)} /></label><button type="button" aria-pressed={measureMode} onClick={() => { setMeasureMode(!measureMode); setMeasurePoints([]); setMode("off"); setClean(false); setMobilePanel("canvas"); setStatus("Marca en la foto los dos extremos de una distancia conocida sobre el plano de la prenda."); }}>{measureMode ? "Terminar referencia" : "Marcar referencia en la imagen"}</button><p className="poster-help">{measurePoints.length} de 2 puntos marcados. Mide una distancia conocida sobre la prenda y toca sus extremos en la imagen. Los centímetros son aproximados por perspectiva y pliegues; no garantizan una medida exacta de impresión.</p>{scaleCm > 0 && <p className="poster-help" role="status">Estampado aproximado: {(selected.width * 1080 * scaleCm).toFixed(2)} × {(selected.width * 1080 / selected.aspect * scaleCm).toFixed(2)} cm (ancho × alto, sin giro).</p>}</>}
     {selected && <><hr /><h2>Elemento seleccionado</h2>{selected.kind === "image" && <><label>Acabado del estampado<select value={selected.technique ?? "dtf"} onChange={event => updateLayer(selected.id, { technique: event.target.value as Technique })}>{Object.entries(TECHNIQUES).map(([key, title]) => <option key={key} value={key}>{title}</option>)}</select></label><p className="poster-help">Simulación visual aproximada para publicidad. Puedes cargar el PNG que preparaste en cada técnica.</p><label>Opacidad <b>{Math.round((selected.opacity ?? 1) * 100)}%</b><input aria-label="Opacidad del estampado" type="range" min="0" max="100" value={(selected.opacity ?? 1) * 100} onChange={event => updateLayer(selected.id, { opacity: Number(event.target.value) / 100 })} /></label></>}{selected.kind === "text" && <><label>Texto<textarea value={selected.text} maxLength={400} rows={3} onChange={event => updateLayer(selected.id, { text: event.target.value })} /></label><label>Fuente<select value={selected.font ?? "Arial"} onChange={event => updateLayer(selected.id, { font: event.target.value as "Arial" | "Georgia" | "Impact" })}><option>Arial</option><option>Georgia</option><option>Impact</option></select></label><button aria-pressed={selected.bold !== false} onClick={() => updateLayer(selected.id, { bold: selected.bold === false })}>Negrita</button><label>Color del texto<input type="color" value={selected.color} onChange={event => updateLayer(selected.id, { color: event.target.value })} /></label></>}<label>Tamaño <b>{Math.round((selected.kind === "image" ? selected.width : selected.size) * 100)}%</b><input aria-label="Tamaño del elemento" type="range" min={selected.kind === "image" ? "3" : "2"} max={selected.kind === "image" ? "150" : "30"} value={(selected.kind === "image" ? selected.width : selected.size) * 100} onChange={event => updateLayer(selected.id, selected.kind === "image" ? { width: Number(event.target.value) / 100 } : { size: Number(event.target.value) / 100 })} /></label><label>Giro <b>{selected.rotation}°</b><input aria-label="Giro del elemento" type="range" min="-180" max="180" value={selected.rotation} onChange={event => updateLayer(selected.id, { rotation: Number(event.target.value) })} /></label><div className="poster-element-actions"><button disabled={poster.layers.length >= 100} onClick={() => { const id = createId(); setPoster(current => ({ ...current, layers: [...current.layers, { ...selected, id, x: Math.min(1, selected.x + .03), y: Math.min(1, selected.y + .03) }] })); setSelectedId(id); }}>Duplicar</button><button onClick={() => updateLayer(selected.id, { x: .5, y: .5 })}>Centrar</button><button disabled={poster.layers[0]?.id === selected.id} onClick={() => { const index = poster.layers.findIndex(item => item.id === selected.id), next = [...poster.layers]; [next[index - 1], next[index]] = [next[index], next[index - 1]]; setPoster(current => ({ ...current, layers: next })); }}>Enviar atrás</button><button disabled={poster.layers.at(-1)?.id === selected.id} onClick={() => { const index = poster.layers.findIndex(item => item.id === selected.id), next = [...poster.layers]; [next[index + 1], next[index]] = [next[index], next[index + 1]]; setPoster(current => ({ ...current, layers: next })); }}>Traer adelante</button><button onClick={() => { setPoster(current => ({ ...current, layers: current.layers.filter(item => item.id !== selected.id) })); setSelectedId(undefined); }}>Eliminar</button></div></>}
     {selected && <><label>Posición horizontal <b>{Math.round(selected.x * 100)}%</b><input aria-label="Posición horizontal" type="range" min="0" max="100" value={selected.x * 100} onChange={event => updateLayer(selected.id, { x: Number(event.target.value) / 100 })} /></label><label>Posición vertical <b>{Math.round(selected.y * 100)}%</b><input aria-label="Posición vertical" type="range" min="0" max="100" value={selected.y * 100} onChange={event => updateLayer(selected.id, { y: Number(event.target.value) / 100 })} /></label></>}
     <hr /><h2>Guardar y compartir</h2><p className="poster-help">La plantilla editable se guarda en este navegador; un nuevo guardado reemplaza la copia anterior. Descarga el PNG para compartirlo como imagen publicitaria.</p></fieldset></div></div>;

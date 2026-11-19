@@ -14,8 +14,7 @@ async function main() {
     } else zip.file(relative, fs.readFileSync(file));
   }
   // Explicit source list: no credentials, signing keys, build caches or installed dependencies.
-  const entries = [".github/workflows/installers.yml", "src", "electron", "ios", "scripts", "dist", "docs", "package.json", "package-lock.json", "capacitor.config.ts", "vite.config.ts", "vitest.config.ts", "tsconfig.json", "tsconfig.app.json", "index.html", "README.md", "t_shirt.glb"];
-  entries.push(...fs.readdirSync(root).filter(name => /^[a-f0-9-]{36}\.png$/.test(name)));
+  const entries = [".github/workflows/installers.yml", "src", "electron", "ios", "scripts", "dist", "docs", "assets", "package.json", "package-lock.json", "capacitor.config.ts", "vite.config.ts", "vitest.config.ts", "tsconfig.json", "tsconfig.app.json", "index.html", "README.md"];
   for (const entry of entries) add(entry);
   zip.file("LEEME-APPLE.md", fs.readFileSync(path.join(root, "docs/APPLE.md")));
   const file = path.join(root, "installers", `Stamprint-Studio-${version}-Apple-Proyecto.zip`);

@@ -2,18 +2,14 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import packageInfo from "./package.json" with { type: "json" };
 const { version, nativeBuildNumber } = packageInfo;
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, loadImage } from "@napi-rs/canvas";
+import { readFileSync } from "node:fs";
 
-function appIcon(size: number): Buffer {
+async function appIcon(size: number): Promise<Buffer> {
   const canvas = createCanvas(size, size);
   const context = canvas.getContext("2d");
-  context.fillStyle = "#151c27";
-  context.fillRect(0, 0, size, size);
-  context.fillStyle = "#ffffff";
-  context.font = `bold ${Math.round(size * 0.36)}px sans-serif`;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText("S", size / 2, size / 2);
+  const logo = await loadImage(readFileSync(new URL("./assets/branding/stamprint-logo.png", import.meta.url)));
+  context.drawImage(logo, 0, 0, size, size);
   return canvas.toBuffer("image/png");
 }
 
@@ -21,10 +17,10 @@ export default defineConfig({
   plugins: [
     {
       name: "stamprint-app-icons",
-      generateBundle() {
+      async generateBundle() {
         this.emitFile({ type: "asset", fileName: "build-info.json", source: JSON.stringify({ version, build: nativeBuildNumber }, null, 2) });
         for (const size of [192, 512]) {
-          this.emitFile({ type: "asset", fileName: `icon-${size}.png`, source: appIcon(size) });
+          this.emitFile({ type: "asset", fileName: `icon-${size}.png`, source: await appIcon(size) });
         }
       },
     },

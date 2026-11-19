@@ -1,8 +1,8 @@
-import womanStudio from "../../../326ea51c-0efa-47b6-9cf0-433e1d5a0178.png?url";
-import pair from "../../../8ff90b6c-6e81-43ff-afe3-2577243af19e.png?url";
-import womanCasual from "../../../9367442c-abb5-4e62-95c4-8c653db41fbc.png?url";
-import hanger from "../../../a0e2c3d4-137d-4212-bf57-1c7d35e921be.png?url";
-import man from "../../../b4de22f2-189f-45b7-b930-7a1f72a89571.png?url";
+import womanStudio from "../../../assets/marketing/326ea51c-0efa-47b6-9cf0-433e1d5a0178.png?url";
+import pair from "../../../assets/marketing/8ff90b6c-6e81-43ff-afe3-2577243af19e.png?url";
+import womanCasual from "../../../assets/marketing/9367442c-abb5-4e62-95c4-8c653db41fbc.png?url";
+import hanger from "../../../assets/marketing/a0e2c3d4-137d-4212-bf57-1c7d35e921be.png?url";
+import man from "../../../assets/marketing/b4de22f2-189f-45b7-b930-7a1f72a89571.png?url";
 export interface PhotoTemplate {
   id: string; title: string; source: string; width: number; height: number;
   crop?: { x: number; y: number; width: number; height: number };

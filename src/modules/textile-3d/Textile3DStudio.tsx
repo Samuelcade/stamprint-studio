@@ -3,7 +3,7 @@ import JSZip from "jszip";
 import { loadDefaultModel, saveDefaultModel } from "../storage/modelStore";
 import { createGarmentViewer, GarmentViewer, GestureMode, HIDDEN_OVERLAY, ModelData, StampOverlay } from "./garmentViewer";
 import { MAX_STAMP_SIZE_CM, stampDimensionsCm } from "./stampProjection";
-import bundledShirtUrl from "../../../t_shirt.glb?url";
+import bundledShirtUrl from "../../../assets/models/t_shirt.glb?url";
 import { recordTurntable, supportedVideoFormats } from "./recordTurntable";
 
 interface Props { designSource?: string; designSizeCm?: number }

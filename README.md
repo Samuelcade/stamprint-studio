@@ -2,6 +2,15 @@
 
 Aplicación local para composición y preparación de artes textiles, con vista de camiseta 3D.
 
+## Estructura del proyecto
+
+- `src/modules/`: herramientas de la aplicación, agrupadas por función.
+- `src/core/` y `src/components/`: lógica y componentes compartidos.
+- `assets/branding/`, `assets/marketing/` y `assets/models/`: logo, imágenes y modelo 3D.
+- `android/`, `ios/` y `electron/`: proyectos para las aplicaciones nativas.
+- `scripts/` y `docs/`: herramientas de compilación y documentación.
+- `installers/`: instaladores generados; `dist/`, `build/` y `artifacts/`: archivos generados. Estas carpetas no forman parte del código fuente.
+
 ## Incluido y comprobable
 
 - React, TypeScript y Vite, con módulos separados para core, almacenamiento y eliminación de fondos.
@@ -53,7 +62,7 @@ Es una trama raster de una tinta, no una separación CMYK ni un archivo de máqu
 2. Carga imágenes PNG, JPG o WebP, o usa **Usar diseño del editor** para añadir la composición actual con sus medidas físicas. Las imágenes importadas reciben un tamaño inicial que puedes ajustar.
 3. Selecciona y arrastra cada diseño; arrastra su esquina inferior para cambiar el tamaño proporcionalmente o el control ↻ para girarlo libremente. También puedes introducir el giro en grados, usar el botón de 90°, cambiar posición y medidas, duplicar o eliminar. **Distribuir automáticamente** organiza los diseños en filas usando el rectángulo que los contiene ya girados; si no caben, conserva la distribución anterior.
    Para medir únicamente el área del arte, usa **Recorte automático** para eliminar márgenes transparentes, o **Recorte manual** para seleccionar el área arrastrando o introducir sus coordenadas en píxeles. El recorte mantiene la escala física del contenido; ajusta después el ancho o alto en centímetros si deseas otro tamaño final. El automático conserva cualquier píxel con transparencia parcial y no elimina fondos opacos. El recorte reemplaza la imagen de esa copia en la mesa.
-4. El resumen muestra la longitud ocupada y el porcentaje de área de los rectángulos de diseño, no la cobertura real de tinta. Corrige los avisos de diseños fuera de la hoja o de separación insuficiente antes de exportar.
+4. El resumen muestra la longitud ocupada y el porcentaje de área de los rectángulos de diseño, no la cobertura real de tinta. Los diseños deben estar dentro de la hoja. La separación insuficiente se indica con un aviso, pero permite exportar la distribución tal como se ve; revisa el resultado antes de imprimir.
 5. Selecciona fondo **Transparente** o **Blanco** en la hoja. **Exportar PNG** y **Exportar PDF** generan la hoja completa con ese fondo. El PNG incluye metadatos DPI; el PDF conserva las medidas físicas de la hoja y sus imágenes son raster sin pérdida. La exportación admite hasta 16.000 píxeles por lado y 64 megapíxeles. Usa **Guardar mesa** y **Abrir mesa guardada** para recuperar una copia editable después de recargar; cada guardado reemplaza la copia anterior en este navegador.
 
 ## Separación de colores para serigrafía

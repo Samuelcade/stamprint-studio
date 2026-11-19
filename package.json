@@ -1,7 +1,7 @@
 {
   "name": "stamprint-studio",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "main": "electron/main.cjs",
   "description": "Estudio de diseño y preparación de artes textiles",
@@ -11,7 +11,7 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:windows": "npm run build && electron-builder --win nsis --x64 --publish never",
+    "build:windows": "node scripts/generate-windows-icon.cjs && npm run build && electron-builder --win nsis --x64 --publish never",
     "build:mac": "node scripts/build-apple.cjs mac",
     "package:web": "npm run build && node scripts/package-web.cjs",
     "sync:ios": "npm run build && cap sync ios",
@@ -37,7 +37,8 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico",
+      "signExecutable": false
     },
     "nsis": {
       "oneClick": false,
@@ -46,6 +47,7 @@
     },
     "mac": {
       "category": "public.app-category.graphics-design",
+      "icon": "assets/apple-icon.png",
       "artifactName": "Stamprint-Studio-${version}-macOS-${arch}.${ext}"
     }
   },
@@ -80,5 +82,5 @@
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "latest"
   },
-  "nativeBuildNumber": 6
+  "nativeBuildNumber": 7
 }

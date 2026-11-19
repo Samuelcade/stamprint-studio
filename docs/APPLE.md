@@ -6,7 +6,7 @@ Este paquete contiene el código actual, las fotos, el modelo 3D, el proyecto Xc
 
 El proyecto incluye `.github/workflows/installers.yml`, de ejecución manual. Su configuración se ha revisado localmente; aún no se ha ejecutado en GitHub ni se han generado binarios Apple.
 
-1. Sube el contenido del paquete fuente a un repositorio propio, incluyendo la carpeta oculta `.github`. Conserva las imágenes PNG de la raíz y `t_shirt.glb`. No subas `node_modules`, certificados ni carpetas de instaladores.
+1. Sube el contenido del paquete fuente a un repositorio propio, incluyendo las carpetas `.github` y `assets`. No subas `node_modules`, certificados ni carpetas de instaladores.
 2. En la rama predeterminada, abre **Actions → Generar instaladores → Run workflow** y elige `macos`.
 3. Cuando termine correctamente, descarga **Stamprint-macOS-sin-notarizar** desde **Artifacts**. Incluye DMG y ZIP para Intel y Apple Silicon. Son paquetes de prueba, sin firma Developer ID ni notarización; macOS puede bloquear su apertura.
 4. `windows` genera el EXE. `ios-simulator` genera únicamente una app para el simulador de Xcode; **no genera un IPA para iPhone**. `all` ejecuta las tres compilaciones.

@@ -35,14 +35,20 @@ it("coloca y selecciona piedras, guarda, recupera y muestra una vista en camiset
   let output: Blob | undefined;
   vi.mocked(URL.createObjectURL).mockImplementation(blob => { output = blob as Blob; return "blob:png"; });
   await user.click(screen.getByRole("button", { name: "Descargar PNG" }));
-  await waitFor(() => expect(screen.getByRole("status").textContent).toContain("fondo transparente"));
+  await waitFor(() => expect(screen.getByRole("status").textContent).toContain("fondo blanco"));
   const image = await loadImage(new Uint8Array(await output!.arrayBuffer()));
   const canvas = createCanvas(image.width, image.height), ctx = canvas.getContext("2d"); ctx.drawImage(image, 0, 0);
-  expect(ctx.getImageData(0, 0, 1, 1).data[3]).toBe(0);
+  expect([...ctx.getImageData(0, 0, 1, 1).data]).toEqual([255, 255, 255, 255]);
   const stone = board.querySelector("circle[data-stone]")!;
   const x = Math.round(Number(stone.getAttribute("cx")) / 2.54 * 150), y = Math.round(Number(stone.getAttribute("cy")) / 2.54 * 150);
   expect(ctx.getImageData(x, y, 1, 1).data[3]).toBe(255);
   expect([...ctx.getImageData(x, y, 1, 1).data]).toEqual([237, 18, 52, 255]);
+  await user.selectOptions(screen.getByLabelText("Fondo del PNG"), "transparent");
+  await user.click(screen.getByRole("button", { name: "Descargar PNG" }));
+  await waitFor(() => expect(screen.getByRole("status").textContent).toContain("fondo transparente"));
+  const transparent = await loadImage(new Uint8Array(await output!.arrayBuffer()));
+  ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.drawImage(transparent, 0, 0);
+  expect(ctx.getImageData(0, 0, 1, 1).data[3]).toBe(0);
   await user.click(screen.getByRole("button", { name: "Vista en camiseta" }));
   expect(screen.getByLabelText("Vista previa en camiseta").querySelectorAll("circle")).toHaveLength(1);
   expect(screen.getByLabelText("Vista previa en camiseta").querySelector("circle")!.getAttribute("fill")).toBe("#ed1234");
@@ -66,11 +72,11 @@ it("cambia solo el color de la selección y permite aplicarlo a todas sin altera
   await user.click(screen.getByRole("button", { name: "Seleccionar" }));
   fireEvent.pointerDown(stones[0], { button: 0, clientX: 200, clientY: 400 });
   fireEvent.pointerUp(board, { button: 0, clientX: 200, clientY: 400 });
-  fireEvent.input(screen.getByLabelText("Color de piedra"), { target: { value: "#1256ef" } });
-  expect(stones[0].getAttribute("fill")).toBe("#1256ef");
+  await user.click(screen.getByRole("button", { name: "Color Azul" }));
+  expect(stones[0].getAttribute("fill")).toBe("#2563eb");
   expect(stones[1].getAttribute("fill")).toBe(originalSecondColor);
   await user.click(screen.getByRole("button", { name: "Aplicar color a todas" }));
-  expect(stones.map(stone => stone.getAttribute("fill"))).toEqual(["#1256ef", "#1256ef"]);
+  expect(stones.map(stone => stone.getAttribute("fill"))).toEqual(["#2563eb", "#2563eb"]);
   expect(geometry()).toEqual(before);
 });
 

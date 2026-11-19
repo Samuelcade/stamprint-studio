@@ -141,3 +141,4 @@ input[type=range] { accent-color: var(--accent); min-height: 28px; }
 
 .app-shell .editor-selection .editor-handle-hit { fill: transparent; stroke: none; pointer-events: all; }
 .app-shell .editor-selection .editor-handle-dot { pointer-events: none; }
+@media (max-width: 900px) { .app-shell, .app-shell > main, .app-shell .workspace, .app-shell .editor-sidebar, .navigation-dialog { -webkit-overflow-scrolling: touch; } }

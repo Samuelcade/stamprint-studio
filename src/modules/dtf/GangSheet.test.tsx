@@ -4,11 +4,36 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { GangSheet } from "./GangSheet";
-import { installTestCanvas } from "../graphic-editor/testCanvas";
+import { installTestCanvas, testImage } from "../graphic-editor/testCanvas";
+import { saveSheet } from "./storage";
+import * as pdf from "./pdf";
 
 beforeEach(() => { installTestCanvas(); vi.stubGlobal("indexedDB", new IDBFactory()); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 describe("controles de la mesa DTF", () => {
+  it("permite exportar diseños fuera de la hoja y con avisos de separación", async () => {
+    const user = userEvent.setup();
+    const source = testImage();
+    await saveSheet({ width: 58, height: 100, dpi: 72, gap: 1, background: "transparent", items: Array.from({ length: 5 }, (_, i) => ({ id: String(i), source, name: `Diseño ${i}`, width: 5, height: 5, x: i === 4 ? 57 : i * 5, y: 0, rotated: false })) });
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:test") });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+    const link = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const pdfSpy = vi.spyOn(pdf, "sheetPdf").mockResolvedValue(new Blob(["pdf"], { type: "application/pdf" }));
+    render(<GangSheet hasEditorDesign={false} onUseEditor={async () => { throw new Error("Sin diseño"); }} onOpenEditor={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "Abrir mesa guardada" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("recuperada"));
+    expect(screen.getByRole("status").textContent).toContain("separación insuficiente");
+    expect(screen.getByRole("status").textContent).toContain("fuera de la hoja");
+    await user.click(screen.getByRole("button", { name: "Exportar PNG" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("PNG preparado"), { timeout: 15000 });
+    expect(screen.getByRole("status").textContent).toContain("se recortaron");
+    expect(link).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Exportar PDF" }));
+    await waitFor(() => expect(screen.getByRole("status").textContent).toContain("PDF preparado"), { timeout: 15000 });
+    expect(screen.getByRole("status").textContent).toContain("se recortaron");
+    expect(pdfSpy).toHaveBeenCalledOnce(); expect(link).toHaveBeenCalledTimes(2);
+    for (let i = 0; i < 5; i++) { await user.click(screen.getByRole("button", { name: new RegExp(`Diseño ${i}\\s*#`) })); await user.click(screen.getByRole("button", { name: "Eliminar" })); }
+  }, 30000);
   it("edita medidas, añade, duplica, gira, distribuye y elimina diseños", async () => {
     const user = userEvent.setup(), open = vi.fn();
     const editor = vi.fn().mockResolvedValue({ source: "data:image/png;base64,AA==", name: "Diseño", widthCm: 10, heightCm: 5 });

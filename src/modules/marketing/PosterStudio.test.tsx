@@ -19,6 +19,27 @@ beforeEach(() => { installTestCanvas(); vi.stubGlobal("Path2D", Path2D);
   vi.stubGlobal("indexedDB", new IDBFactory()); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+it("recorta márgenes transparentes y calcula la medida a partir de dos puntos de referencia", async () => {
+  const user = userEvent.setup();
+  const source = createCanvas(100, 100); source.getContext("2d").fillRect(25, 25, 50, 50);
+  await savePoster({ ...blankPoster(), template: "shirt-front", layers: [{ id: "test", kind: "image", source: source.toDataURL("image/png"), name: "Diseño", x: .5, y: .5, width: .3, aspect: 1, rotation: 0 }] });
+  render(<PosterStudio hasEditorDesign={false} onUseEditor={async () => { throw new Error("Sin diseño"); }} />);
+  await user.click(screen.getByRole("button", { name: "Abrir plantilla guardada" }));
+  await user.click(await screen.findByRole("button", { name: /Diseño/ }));
+  await user.click(screen.getByRole("button", { name: "Recortar márgenes transparentes" }));
+  await waitFor(() => expect(screen.getByText(/Márgenes transparentes recortados/)).toBeTruthy());
+  fireEvent.change(screen.getByLabelText("Longitud real de referencia (cm)"), { target: { value: "10" } });
+  await user.click(screen.getByRole("button", { name: "Marcar referencia en la imagen" }));
+  const stage = document.querySelector(".poster-stage")!;
+  fireEvent.pointerDown(stage, { button: 0, clientX: 100, clientY: 100 });
+  fireEvent.pointerDown(stage, { button: 0, clientX: 200, clientY: 100 });
+  expect(screen.getByText(/Estampado aproximado: 12.00 × 12.00 cm/)).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Guardar plantilla" }));
+  await waitFor(() => expect(screen.getByText(/Plantilla guardada en este navegador/)).toBeTruthy());
+  const saved = await loadPoster(); const layer = saved!.layers[0];
+  expect(layer.kind).toBe("image"); if (layer.kind === "image") { expect(layer.width).toBeCloseTo(.15); expect(layer.x).toBeCloseTo(.5); expect(layer.y).toBeCloseTo(.5); }
+});
+
 it("colorea la prenda antes de componer el fondo, incluso con transparencias y selecciones amplias", async () => {
   const source = createCanvas(100, 100), sourceCtx = source.getContext("2d");
   sourceCtx.fillStyle = "#ffffff"; sourceCtx.fillRect(30, 20, 40, 60);
